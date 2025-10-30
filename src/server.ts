@@ -31,6 +31,7 @@ dotenv.config();
 
 const app = express();
 const PORT: number = process.env.PORT ? Number(process.env.PORT) : 3001;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // 미들웨어 설정
 const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
@@ -78,7 +79,7 @@ async function start(): Promise<void> {
     await initDuesModel();
     await initUserPreferenceModel();
     await initNotificationLogModel();
-    app.listen(PORT, () => {
+    app.listen(PORT, HOST, () => {
       console.log(`서버가 http://localhost:${PORT}에서 실행 중입니다.`);
       const aws = awsConfigStatus();
       if (!aws.enabled) {
