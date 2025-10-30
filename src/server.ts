@@ -36,19 +36,6 @@ const HOST = process.env.HOST || '0.0.0.0';
 // 미들웨어 설정
 const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
 const corsAllowAll = String(process.env.CORS_ALLOW_ALL || "false").toLowerCase() === "true";
-app.get("/api-docs.json", (_req, res) => {
-  res.set("Cache-Control", "no-store");
-  res.type("application/json").send(openapi);
-});
-
-app.use(
-  cors({
-    origin: corsAllowAll ? true : corsOrigin,
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-requested-with"],
-  })
-);
 app.use(helmet());
 app.use(
   rateLimit({
@@ -59,8 +46,16 @@ app.use(
   })
 );
 app.use(express.json({ limit: "5mb" }));
-app.use(express.urlencoded({ extended: true }));
-
+app.use(express.urlencoded({ extended: true }))
+  ;
+app.use(
+  cors({
+    origin: corsAllowAll ? true : corsOrigin,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-requested-with"],
+  })
+);
 // 로컬 파일 정적 서빙 (S3 미사용 개발 환경용)
 app.use("/files", express.static(LOCAL_UPLOAD_DIR));
 
@@ -81,7 +76,10 @@ app.get("/", (_req, res) => {
 app.get("/health", (_req, res) => {
   res.json({ status: "healthy" });
 });
-
+app.get("/api-docs.json", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.type("application/json").send(openapi);
+});
 // 에러 핸들러
 app.use(errorHandler);
 
