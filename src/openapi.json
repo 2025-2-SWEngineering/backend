@@ -1,0 +1,308 @@
+{
+  "openapi": "3.0.3",
+  "info": { "title": "Woori Accounting API", "version": "1.0.0" },
+  "servers": [{ "url": "/api" }],
+  "components": {
+    "schemas": {
+      "AuthResponse": {
+        "type": "object",
+        "properties": {
+          "token": { "type": "string" },
+          "user": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "integer" },
+              "email": { "type": "string" },
+              "name": { "type": "string" },
+              "role": { "type": "string" }
+            }
+          }
+        }
+      },
+      "Group": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "name": { "type": "string" },
+          "code": { "type": "string" },
+          "user_role": { "type": "string" }
+        }
+      },
+      "Transaction": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer" },
+          "group_id": { "type": "integer" },
+          "type": { "type": "string", "enum": ["income", "expense"] },
+          "amount": { "type": "number" },
+          "description": { "type": "string" },
+          "date": { "type": "string", "format": "date" },
+          "receipt_url": { "type": "string" },
+          "created_by": { "type": "integer" }
+        }
+      },
+      "Stats": {
+        "type": "object",
+        "properties": {
+          "currentBalance": { "type": "number" },
+          "totalIncome": { "type": "number" },
+          "totalExpense": { "type": "number" }
+        }
+      },
+      "MonthlyStat": {
+        "type": "object",
+        "properties": {
+          "month": { "type": "string" },
+          "income": { "type": "number" },
+          "expense": { "type": "number" }
+        }
+      },
+      "DuesItem": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "integer" },
+          "user_name": { "type": "string" },
+          "is_paid": { "type": "boolean" },
+          "paid_at": { "type": "string", "format": "date-time" }
+        }
+      },
+      "Preferences": {
+        "type": "object",
+        "properties": {
+          "user_id": { "type": "integer" },
+          "receive_dues_reminders": { "type": "boolean" }
+        }
+      }
+    },
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [{ "BearerAuth": [] }],
+  "paths": {
+    "/auth/login": {
+      "post": {
+        "summary": "로그인",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "summary": "회원가입",
+        "security": [],
+        "responses": {
+          "201": {
+            "description": "Created",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AuthResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/groups": {
+      "get": {
+        "summary": "내 그룹 목록",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "groups": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Group" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transactions": {
+      "get": {
+        "summary": "그룹 거래 목록",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "groupId",
+            "schema": { "type": "integer" },
+            "required": true
+          },
+          { "in": "query", "name": "limit", "schema": { "type": "integer" } },
+          { "in": "query", "name": "page", "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": { "$ref": "#/components/schemas/Transaction" }
+                    },
+                    "meta": { "type": "object" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "거래 생성",
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/transactions/stats": {
+      "get": {
+        "summary": "그룹 통계",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "groupId",
+            "schema": { "type": "integer" },
+            "required": true
+          }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/transactions/{id}": {
+      "put": {
+        "summary": "거래 수정",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": { "type": "integer" },
+            "required": true
+          }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      },
+      "delete": {
+        "summary": "거래 삭제",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "schema": { "type": "integer" },
+            "required": true
+          }
+        ],
+        "responses": { "204": { "description": "No Content" } }
+      }
+    },
+    "/transactions/monthly": {
+      "get": {
+        "summary": "월별 통계",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "groupId",
+            "schema": { "type": "integer" },
+            "required": true
+          },
+          { "in": "query", "name": "months", "schema": { "type": "integer" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/uploads/presign/put": {
+      "post": {
+        "summary": "S3 프리사인 업로드 URL 발급",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/uploads/presign/get": {
+      "get": {
+        "summary": "S3 프리사인 다운로드 URL 발급",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/user/preferences": {
+      "get": {
+        "summary": "사용자 알림 설정 조회",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Preferences" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "summary": "사용자 알림 설정 업데이트",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/groups/{groupId}/invitations": {
+      "post": {
+        "summary": "초대 코드 생성",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "groupId",
+            "schema": { "type": "integer" },
+            "required": true
+          }
+        ],
+        "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/invitations/accept": {
+      "post": {
+        "summary": "초대 수락",
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
+    "/reports/summary.pdf": {
+      "get": {
+        "summary": "PDF 보고서",
+        "responses": {
+          "200": { "description": "PDF", "content": { "application/pdf": {} } }
+        }
+      }
+    },
+    "/reports/summary.xlsx": {
+      "get": {
+        "summary": "Excel 보고서",
+        "responses": {
+          "200": {
+            "description": "Excel",
+            "content": {
+              "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}
+            }
+          }
+        }
+      }
+    }
+  }
+}
