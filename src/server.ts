@@ -35,6 +35,11 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 // 미들웨어 설정
 const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
+app.get("/api-docs.json", (_req, res) => {
+  res.set("Cache-Control", "no-store");
+  res.type("application/json").send(openapi);
+});
+
 app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(helmet());
 app.use(
@@ -54,7 +59,12 @@ app.use("/files", express.static(LOCAL_UPLOAD_DIR));
 // API 라우트 마운트
 app.use("/api", router);
 // Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi as unknown as Record<string, unknown>));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(undefined, {
+  explorer: true,
+  swaggerOptions: {
+    url: "/api-docs.json",
+  },
+}));
 
 // 기본 루트 및 헬스체크
 app.get("/", (_req, res) => {
