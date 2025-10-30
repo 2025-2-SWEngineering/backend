@@ -62,12 +62,7 @@ app.use("/files", express.static(LOCAL_UPLOAD_DIR));
 // API 라우트 마운트
 app.use("/api", router);
 // Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(undefined, {
-  explorer: true,
-  swaggerOptions: {
-    url: "/api-docs.json",
-  },
-}));
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi as unknown as Record<string, unknown>));
 
 // 기본 루트 및 헬스체크
 app.get("/", (_req, res) => {
@@ -75,10 +70,6 @@ app.get("/", (_req, res) => {
 });
 app.get("/health", (_req, res) => {
   res.json({ status: "healthy" });
-});
-app.get("/api-docs.json", (_req, res) => {
-  res.set("Cache-Control", "no-store");
-  res.type("application/json").send(openapi);
 });
 // 에러 핸들러
 app.use(errorHandler);
