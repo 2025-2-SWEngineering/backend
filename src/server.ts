@@ -35,12 +35,20 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 // 미들웨어 설정
 const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
+const corsAllowAll = String(process.env.CORS_ALLOW_ALL || "false").toLowerCase() === "true";
 app.get("/api-docs.json", (_req, res) => {
   res.set("Cache-Control", "no-store");
   res.type("application/json").send(openapi);
 });
 
-app.use(cors({ origin: corsOrigin, credentials: true }));
+app.use(
+  cors({
+    origin: corsAllowAll ? true : corsOrigin,
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-requested-with"],
+  })
+);
 app.use(helmet());
 app.use(
   rateLimit({
