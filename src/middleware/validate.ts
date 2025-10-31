@@ -33,23 +33,23 @@ export function validate(schema: SchemaDef) {
                 details: error.details.map((d) => d.message),
             });
         }
-    const v = value as { body?: unknown; query?: unknown };
-    if (v.body !== undefined && req.body && typeof req.body === "object") {
-        const current = req.body as Record<string, unknown>;
-        const nextBody = v.body as Record<string, unknown>;
-        for (const key of Object.keys(current)) {
-            if (!(key in nextBody)) delete (current as Record<string, unknown>)[key];
+        const v = value as { body?: unknown; query?: unknown };
+        if (v.body !== undefined && req.body && typeof req.body === "object") {
+            const current = req.body as Record<string, unknown>;
+            const nextBody = v.body as Record<string, unknown>;
+            for (const key of Object.keys(current)) {
+                if (!(key in nextBody)) delete (current as Record<string, unknown>)[key];
+            }
+            Object.assign(current, nextBody);
         }
-        Object.assign(current, nextBody);
-    }
-    if (v.query !== undefined && req.query && typeof req.query === "object") {
-        const currentQ = req.query as Record<string, unknown>;
-        const nextQ = v.query as Record<string, unknown>;
-        for (const key of Object.keys(currentQ)) {
-            if (!(key in nextQ)) delete (currentQ as Record<string, unknown>)[key];
+        if (v.query !== undefined && req.query && typeof req.query === "object") {
+            const currentQ = req.query as Record<string, unknown>;
+            const nextQ = v.query as Record<string, unknown>;
+            for (const key of Object.keys(currentQ)) {
+                if (!(key in nextQ)) delete (currentQ as Record<string, unknown>)[key];
+            }
+            Object.assign(currentQ, nextQ);
         }
-        Object.assign(currentQ, nextQ);
-    }
         next();
     };
 }
