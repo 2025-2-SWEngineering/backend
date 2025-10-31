@@ -41,7 +41,6 @@ const corsOpts = {
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-requested-with", "Origin", "Accept"],
-  optionsSuccessStatus: 204,
 };
 app.use(cors(corsOpts));
 // 프리플라이트 전역 허용 (Express 5에서는 '*' 대신 정규식 사용)
@@ -50,7 +49,7 @@ app.options(/.*/, cors(corsOpts));
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }))
   ;
-
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi as unknown as Record<string, unknown>));// helmet 적용 전에 위치해야 함
 // 보안 헤더(임시로 HSTS 비활성화)
 app.use(helmet({ strictTransportSecurity: false }));
 // 프리플라이트(OPTIONS)는 rate limit 제외
@@ -64,7 +63,7 @@ app.use(
   })
 );
 
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi as unknown as Record<string, unknown>));
+
 // 로컬 파일 정적 서빙 (S3 미사용 개발 환경용)
 app.use("/files", express.static(LOCAL_UPLOAD_DIR));
 
