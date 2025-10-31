@@ -21,7 +21,7 @@ export async function initTransactionModel(): Promise<void> {
       type TEXT NOT NULL CHECK (type IN ('income','expense')),
       amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
       description TEXT NOT NULL,
-      date DATE NOT NULL,
+      date TIMESTAMPTZ NOT NULL,
       receipt_url TEXT,
       category TEXT,
       created_by INTEGER NOT NULL REFERENCES users(id) ON DELETE SET NULL,
@@ -31,6 +31,14 @@ export async function initTransactionModel(): Promise<void> {
     await pool.query(createSql);
     // 스키마 보강: 기존 테이블에 category 컬럼이 없다면 추가
     await pool.query(`ALTER TABLE transactions ADD COLUMN IF NOT EXISTS category TEXT`);
+    // 스키마 보강: date 컬럼이 DATE 타입이면 TIMESTAMPTZ로 변환
+    const { rows: dateTypeRows } = await pool.query<{ data_type?: string }>(
+        `SELECT data_type FROM information_schema.columns WHERE table_name = 'transactions' AND column_name = 'date'`
+    );
+    const currentType = (dateTypeRows && dateTypeRows[0]?.data_type) || null;
+    if (currentType === 'date') {
+        await pool.query(`ALTER TABLE transactions ALTER COLUMN date TYPE TIMESTAMPTZ USING date::timestamptz`);
+    }
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_tx_group_id ON transactions(group_id)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_tx_date ON transactions(date)`);
     await pool.query(`CREATE INDEX IF NOT EXISTS idx_tx_created_by ON transactions(created_by)`);
@@ -58,7 +66,7 @@ export async function createTransaction({
     const { rows } = await pool.query<TransactionRow>(
         `INSERT INTO transactions (group_id, type, amount, description, date, receipt_url, category, created_by)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING id, group_id, type, amount, description, date, receipt_url, category, created_by, created_at`,
+     RETURNING id, group_id, type, amount::float8 AS amount, description, date, receipt_url, category, created_by, created_at`,
         [groupId, type, amount, description, date, receiptUrl || null, category || null, createdBy]
     );
     return rows[0];
