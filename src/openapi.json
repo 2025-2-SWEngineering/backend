@@ -38,6 +38,7 @@
           "description": { "type": "string" },
           "date": { "type": "string", "format": "date" },
           "receipt_url": { "type": "string" },
+          "category": { "type": "string" },
           "created_by": { "type": "integer" }
         }
       },
@@ -232,6 +233,17 @@
         "responses": { "200": { "description": "OK" } }
       }
     },
+    "/transactions/by-category": {
+      "get": {
+        "summary": "항목별 집계",
+        "parameters": [
+          { "in": "query", "name": "groupId", "schema": { "type": "integer" }, "required": true },
+          { "in": "query", "name": "from", "schema": { "type": "string", "format": "date" } },
+          { "in": "query", "name": "to", "schema": { "type": "string", "format": "date" } }
+        ],
+        "responses": { "200": { "description": "OK" } }
+      }
+    },
     "/uploads/presign/put": {
       "post": {
         "summary": "S3 프리사인 업로드 URL 발급",
@@ -275,6 +287,24 @@
           }
         ],
         "responses": { "201": { "description": "Created" } }
+      }
+    },
+    "/groups/{groupId}": {
+      "delete": {
+        "summary": "그룹 삭제",
+        "parameters": [
+          { "in": "path", "name": "groupId", "schema": { "type": "integer" }, "required": true }
+        ],
+        "responses": { "204": { "description": "No Content" } }
+      }
+    },
+    "/groups/{groupId}/leave": {
+      "post": {
+        "summary": "그룹 탈퇴",
+        "parameters": [
+          { "in": "path", "name": "groupId", "schema": { "type": "integer" }, "required": true }
+        ],
+        "responses": { "204": { "description": "No Content" } }
       }
     },
     "/invitations/accept": {

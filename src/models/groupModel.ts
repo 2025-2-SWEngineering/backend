@@ -115,6 +115,29 @@ export async function countAdminsInGroup(groupId: number): Promise<number> {
     return rows[0]?.cnt ?? 0;
 }
 
+export async function countMembersInGroup(groupId: number): Promise<number> {
+    const { rows } = await pool.query<{ cnt: number }>(
+        `SELECT COUNT(*)::int AS cnt FROM user_groups WHERE group_id = $1`,
+        [groupId]
+    );
+    return rows[0]?.cnt ?? 0;
+}
+
+export async function removeUserFromGroup({
+    userId,
+    groupId,
+}: {
+    userId: number;
+    groupId: number;
+}): Promise<void> {
+    await pool.query(`DELETE FROM user_groups WHERE user_id = $1 AND group_id = $2`, [userId, groupId]);
+}
+
+export async function deleteGroup(groupId: number): Promise<void> {
+    // groups 삭제 시 transactions/dues/invitations/user_groups/notification_logs 는 FK 의 ON DELETE CASCADE 로 정리됨
+    await pool.query(`DELETE FROM groups WHERE id = $1`, [groupId]);
+}
+
 export async function setUserGroupRole({
     userId,
     groupId,

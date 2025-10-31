@@ -8,6 +8,7 @@ import {
   getTransactionById,
   updateTransaction,
   deleteTransaction,
+  getCategoryStatsByGroup,
 } from "../models/transactionModel.js";
 
 export async function list(req: Request, res: Response, next: NextFunction) {
@@ -50,6 +51,22 @@ export async function monthly(req: Request, res: Response, next: NextFunction) {
     const role = await getUserGroupRole(req.user!.id, groupId);
     if (!role) return res.status(403).json({ message: "해당 그룹에 대한 권한이 없습니다." });
     const data = await getMonthlyStatsByGroup(groupId, months > 0 ? months : 6);
+    res.json({ data });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function byCategory(req: Request, res: Response, next: NextFunction) {
+  try {
+    const q = req.query as unknown as { groupId?: string; from?: string; to?: string };
+    const groupId = Number(q.groupId);
+    const from = q.from || undefined;
+    const to = q.to || undefined;
+    if (!groupId) return res.status(400).json({ message: "groupId가 필요합니다." });
+    const role = await getUserGroupRole(req.user!.id, groupId);
+    if (!role) return res.status(403).json({ message: "해당 그룹에 대한 권한이 없습니다." });
+    const data = await getCategoryStatsByGroup({ groupId, from, to });
     res.json({ data });
   } catch (err) {
     next(err);

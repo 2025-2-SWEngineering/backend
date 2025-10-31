@@ -16,6 +16,9 @@ router.get("/stats", tx.stats);
 // 월별 통계
 router.get("/monthly", tx.monthly);
 
+// 항목별 집계
+router.get("/by-category", validate(schemas.transactions.byCategory), tx.byCategory);
+
 // 생성
 router.post("/", validate(schemas.transactions.create), tx.create);
 

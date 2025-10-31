@@ -20,4 +20,10 @@ router.get("/:groupId/members", groups.members);
 // 멤버 역할 변경 (관리자 전용)
 router.put("/:groupId/members/:userId/role", groups.changeRole);
 
+// 그룹 삭제 (관리자 전용)
+router.delete("/:groupId", groups.remove);
+
+// 그룹 탈퇴 (본인)
+router.post("/:groupId/leave", groups.leave);
+
 export default router;

@@ -63,6 +63,17 @@ export const schemas = {
                 page: Joi.number().integer().min(1).default(1),
             }),
         },
+        byCategory: {
+            query: Joi.object({
+                groupId: Joi.number().integer().required(),
+                from: Joi.string()
+                    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+                    .optional(),
+                to: Joi.string()
+                    .pattern(/^\d{4}-\d{2}-\d{2}$/)
+                    .optional(),
+            }),
+        },
         create: {
             body: Joi.object({
                 groupId: Joi.number().integer().required(),
@@ -72,7 +83,12 @@ export const schemas = {
                 date: Joi.alternatives()
                     .try(Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/), Joi.string().isoDate())
                     .required(),
-                receiptUrl: Joi.string().optional(),
+                receiptUrl: Joi.string().when("type", {
+                    is: Joi.valid("expense"),
+                    then: Joi.string().min(1).required(),
+                    otherwise: Joi.string().optional(),
+                }),
+                category: Joi.string().max(100).optional(),
             }),
         },
         update: {
@@ -85,6 +101,7 @@ export const schemas = {
                     .try(Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/), Joi.string().isoDate())
                     .optional(),
                 receiptUrl: Joi.string().optional(),
+                category: Joi.string().max(100).optional(),
             }),
         },
         delete: {

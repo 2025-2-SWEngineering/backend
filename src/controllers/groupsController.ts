@@ -6,6 +6,9 @@ import {
     listGroupMembers,
     setUserGroupRole,
     countAdminsInGroup,
+    countMembersInGroup,
+    removeUserFromGroup,
+    deleteGroup as deleteGroupModel,
 } from "../models/groupModel.js";
 import { createInvitation } from "../models/invitationModel.js";
 
@@ -85,4 +88,40 @@ export async function changeRole(req: Request, res: Response, next: NextFunction
     }
 }
 
+
+export async function remove(req: Request, res: Response, next: NextFunction) {
+    try {
+        const groupId = Number(req.params.groupId);
+        if (!groupId) return res.status(400).json({ message: "groupId가 필요합니다." });
+        const role = await getUserGroupRole(req.user!.id, groupId);
+        if (role !== "admin") return res.status(403).json({ message: "그룹 삭제는 관리자만 가능합니다." });
+        await deleteGroupModel(groupId);
+        return res.status(204).send();
+    } catch (err) {
+        next(err);
+    }
+}
+
+export async function leave(req: Request, res: Response, next: NextFunction) {
+    try {
+        const groupId = Number(req.params.groupId);
+        if (!groupId) return res.status(400).json({ message: "groupId가 필요합니다." });
+        const role = await getUserGroupRole(req.user!.id, groupId);
+        if (!role) return res.status(404).json({ message: "이미 그룹에 속해있지 않습니다." });
+
+        if (role === "admin") {
+            const adminCount = await countAdminsInGroup(groupId);
+            const memberCount = await countMembersInGroup(groupId);
+            // 마지막 관리자면 탈퇴 제한(다른 멤버가 존재할 때)
+            if (adminCount <= 1 && memberCount > 1) {
+                return res.status(400).json({ message: "마지막 관리자는 다른 관리자를 지정하거나 그룹을 삭제해야 합니다." });
+            }
+        }
+
+        await removeUserFromGroup({ userId: req.user!.id, groupId });
+        return res.status(204).send();
+    } catch (err) {
+        next(err);
+    }
+}
 
