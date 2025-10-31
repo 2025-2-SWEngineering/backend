@@ -35,18 +35,34 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 // 미들웨어 설정
 const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
-app.use(cors({ origin: corsOrigin, credentials: true }));
-app.use(helmet());
+const corsAllowAll = String(process.env.CORS_ALLOW_ALL || "false").toLowerCase() === "true";
+const corsOpts = {
+  origin: corsAllowAll ? true : corsOrigin,
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-requested-with", "Origin", "Accept"],
+};
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi as unknown as Record<string, unknown>));
+app.use(cors(corsOpts));
+// 프리플라이트 전역 허용 (Express 5에서는 '*' 대신 정규식 사용)
+app.options(/.*/, cors(corsOpts));
+
+app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true }))
+  ;
+// 보안 헤더(임시로 HSTS 비활성화)
+app.use(helmet({ strictTransportSecurity: false }));
+// 프리플라이트(OPTIONS)는 rate limit 제외
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
     max: 1000,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: (req) => req.method === "OPTIONS",
   })
 );
-app.use(express.json({ limit: "5mb" }));
-app.use(express.urlencoded({ extended: true }));
+
 
 // 로컬 파일 정적 서빙 (S3 미사용 개발 환경용)
 app.use("/files", express.static(LOCAL_UPLOAD_DIR));
@@ -54,7 +70,7 @@ app.use("/files", express.static(LOCAL_UPLOAD_DIR));
 // API 라우트 마운트
 app.use("/api", router);
 // Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi as unknown as Record<string, unknown>));
+
 
 // 기본 루트 및 헬스체크
 app.get("/", (_req, res) => {
@@ -63,7 +79,6 @@ app.get("/", (_req, res) => {
 app.get("/health", (_req, res) => {
   res.json({ status: "healthy" });
 });
-
 // 에러 핸들러
 app.use(errorHandler);
 
