@@ -88,7 +88,7 @@ export const schemas = {
                     then: Joi.string().min(1).required(),
                     otherwise: Joi.string().optional(),
                 }),
-                category: Joi.string().max(100).optional(),
+                category: Joi.string().max(100).required(),
             }),
         },
         update: {
