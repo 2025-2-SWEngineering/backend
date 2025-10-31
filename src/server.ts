@@ -41,8 +41,11 @@ const corsOpts = {
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-requested-with", "Origin", "Accept"],
+  optionsSuccessStatus: 204,
 };
 app.use(cors(corsOpts));
+// 프리플라이트 전역 허용 (Express 5에서는 '*' 대신 정규식 사용)
+app.options(/.*/, cors(corsOpts));
 
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }))
