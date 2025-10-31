@@ -125,3 +125,24 @@ export async function leave(req: Request, res: Response, next: NextFunction) {
     }
 }
 
+export async function removeMember(req: Request, res: Response, next: NextFunction) {
+    try {
+        const groupId = Number(req.params.groupId);
+        const targetUserId = Number(req.params.userId);
+        if (!groupId || !targetUserId) return res.status(400).json({ message: "groupId, userId가 필요합니다." });
+        const requesterRole = await getUserGroupRole(req.user!.id, groupId);
+        if (requesterRole !== "admin") return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+        if (targetUserId === req.user!.id) return res.status(400).json({ message: "본인은 추방할 수 없습니다. 탈퇴를 이용하세요." });
+        const targetRole = await getUserGroupRole(targetUserId, groupId);
+        if (!targetRole) return res.status(404).json({ message: "대상 사용자가 그룹에 없습니다." });
+        if (targetRole === "admin") {
+            const adminCount = await countAdminsInGroup(groupId);
+            if (adminCount <= 1) return res.status(400).json({ message: "마지막 관리자는 추방할 수 없습니다." });
+        }
+        await removeUserFromGroup({ userId: targetUserId, groupId });
+        return res.status(204).send();
+    } catch (err) {
+        next(err);
+    }
+}
+
