@@ -1,5 +1,7 @@
 import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
+import fs from "fs";
+import path from "path";
 import pool from "../config/database.js";
 
 type ReportRow = {
@@ -36,6 +38,24 @@ export async function buildReportPDF({ groupId, from, to }: { groupId: number; f
   const { transactions, totalIncome, totalExpense, currentBalance } = await fetchReportData(groupId, from, to);
   const doc = new PDFDocument({ size: "A4", margin: 50 });
   const chunks: Buffer[] = [];
+  // 폰트 로딩: 한글 표시를 위해 TTF/OTF 폰트를 등록 (예: NanumGothic, NotoSansKR 등)
+  try {
+    const envFont = process.env.PDF_FONT_PATH;
+    const defaultCandidate = path.resolve(process.cwd(), "assets", "fonts", "NanumGothic.ttf");
+    const fontPath = envFont && fs.existsSync(envFont) ? envFont : fs.existsSync(defaultCandidate) ? defaultCandidate : "";
+    if (fontPath) {
+      doc.registerFont("body", fontPath);
+      doc.font("body");
+    } else {
+      // eslint-disable-next-line no-console
+      console.warn("[report] PDF_FONT_PATH not set and default font missing; Korean glyphs may not render.");
+    }
+  } catch {
+    // ignore font errors - PDFKit 기본 폰트로 진행(한글은 깨질 수 있음)
+  }
+
+  const fmtCurrency = (n: number) => `${Number(n).toLocaleString("ko-KR")}원`;
+  const fmtDate = (d: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : new Date(d).toISOString().slice(0, 10));
   return await new Promise<Buffer>((resolve, reject) => {
     doc.on("data", (d: Buffer) => chunks.push(d));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
@@ -45,9 +65,9 @@ export async function buildReportPDF({ groupId, from, to }: { groupId: number; f
     doc.moveDown(0.5);
     doc.fontSize(12).text(`기간: ${from} ~ ${to}`);
     doc.moveDown(0.5);
-    doc.text(`총 수입: ${totalIncome.toLocaleString()}원`);
-    doc.text(`총 지출: ${totalExpense.toLocaleString()}원`);
-    doc.text(`현재 잔액: ${currentBalance.toLocaleString()}원`);
+    doc.text(`총 수입: ${fmtCurrency(totalIncome)}`);
+    doc.text(`총 지출: ${fmtCurrency(totalExpense)}`);
+    doc.text(`현재 잔액: ${fmtCurrency(currentBalance)}`);
     doc.moveDown();
     doc.fontSize(14).text("거래 내역", { underline: true });
     doc.moveDown(0.5);
@@ -55,7 +75,10 @@ export async function buildReportPDF({ groupId, from, to }: { groupId: number; f
     doc.fontSize(10);
     transactions.forEach((t) => {
       const sign = t.type === "income" ? "+" : "-";
-      doc.text(`${t.date}  ${sign}${Number(t.amount).toLocaleString()}원  ${t.description || "-"}`);
+      const dateText = fmtDate(t.date);
+      const amountText = `${sign}${fmtCurrency(Number(t.amount))}`;
+      const desc = t.description || "-";
+      doc.text(`${dateText}  ${amountText}  ${desc}`);
     });
 
     doc.end();
