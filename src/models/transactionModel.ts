@@ -77,7 +77,9 @@ export async function listTransactionsByGroup(
     { limit = 50, offset = 0 }: { limit?: number; offset?: number } = {}
 ): Promise<TransactionRow[]> {
     const { rows } = await pool.query<TransactionRow>(
-        `SELECT id, group_id, type, amount::float8 AS amount, description, date, receipt_url, category, created_by, created_at
+        `SELECT id, group_id, type, amount::float8 AS amount, description, date, receipt_url,
+        COALESCE(NULLIF(TRIM(category), ''), '기타') AS category,
+        created_by, created_at
      FROM transactions
      WHERE group_id = $1
      ORDER BY date DESC, id DESC
@@ -180,12 +182,24 @@ export async function getCategoryStatsByGroup({
     const params: Array<string | number> = [groupId];
     let where = `group_id = $1`;
     if (from) {
+        const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(from);
         params.push(from);
-        where += ` AND date >= $${params.length}`;
+        if (isDateOnly) {
+            where += ` AND date >= ($${params.length}::date)`;
+        } else {
+            where += ` AND date >= ($${params.length}::timestamptz)`;
+        }
     }
     if (to) {
+        const isDateOnlyTo = /^\d{4}-\d{2}-\d{2}$/.test(to);
         params.push(to);
-        where += ` AND date <= $${params.length}`;
+        if (isDateOnlyTo) {
+            // 날짜만 주어지면 해당 날짜의 23:59:59.999까지 포함되도록 다음날 0시 미만으로 비교
+            where += ` AND date < ($${params.length}::date + INTERVAL '1 day')`;
+        } else {
+            // 시간까지 주어졌다면 그 시각 이하까지 포함
+            where += ` AND date <= ($${params.length}::timestamptz)`;
+        }
     }
     const { rows } = await pool.query<{ category: string | null; income: number; expense: number; total: number }>(
         `SELECT COALESCE(NULLIF(TRIM(category), ''), '기타') AS category,
