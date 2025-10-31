@@ -2,6 +2,9 @@ import PDFDocument from "pdfkit";
 import ExcelJS from "exceljs";
 import fs from "fs";
 import path from "path";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { s3, BUCKET } from "../config/storageConfig.js";
+import { Readable } from "stream";
 import pool from "../config/database.js";
 
 type ReportRow = {
@@ -34,6 +37,29 @@ async function fetchReportData(groupId: number, from: string, to: string) {
   };
 }
 
+async function streamToBuffer(stream: Readable): Promise<Buffer> {
+  return await new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    stream.on("data", (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+    stream.on("end", () => resolve(Buffer.concat(chunks)));
+    stream.on("error", reject);
+  });
+}
+
+async function loadFontFromS3IfConfigured(): Promise<Buffer | null> {
+  try {
+    const key = process.env.PDF_FONT_S3_KEY || "";
+    if (!key || !BUCKET) return null;
+    const res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }));
+    const body = res.Body as Readable | undefined;
+    if (!body) return null;
+    const buf = await streamToBuffer(body);
+    return buf;
+  } catch {
+    return null;
+  }
+}
+
 export async function buildReportPDF({ groupId, from, to }: { groupId: number; from: string; to: string }): Promise<Buffer> {
   const { transactions, totalIncome, totalExpense, currentBalance } = await fetchReportData(groupId, from, to);
   const doc = new PDFDocument({ size: "A4", margin: 50 });
@@ -47,8 +73,15 @@ export async function buildReportPDF({ groupId, from, to }: { groupId: number; f
       doc.registerFont("body", fontPath);
       doc.font("body");
     } else {
-      // eslint-disable-next-line no-console
-      console.warn("[report] PDF_FONT_PATH not set and default font missing; Korean glyphs may not render.");
+      // S3에서 폰트 로드 시도
+      const s3Font = await loadFontFromS3IfConfigured();
+      if (s3Font) {
+        doc.registerFont("body", s3Font);
+        doc.font("body");
+      } else {
+        // eslint-disable-next-line no-console
+        console.warn("[report] PDF font not found (local/S3). Korean glyphs may not render.");
+      }
     }
   } catch {
     // ignore font errors - PDFKit 기본 폰트로 진행(한글은 깨질 수 있음)
