@@ -37,9 +37,6 @@ const HOST = process.env.HOST || '0.0.0.0';
 const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
 const corsAllowAll = String(process.env.CORS_ALLOW_ALL || "false").toLowerCase() === "true";
 
-//hsts 비활성화
-app.use(helmet({ hsts: false }));
-
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -60,6 +57,10 @@ app.use(
   })
 );
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi as unknown as Record<string, unknown>));
+
+//hsts 비활성화
+app.use(helmet({ hsts: false }));
+
 // 로컬 파일 정적 서빙 (S3 미사용 개발 환경용)
 app.use("/files", express.static(LOCAL_UPLOAD_DIR));
 
