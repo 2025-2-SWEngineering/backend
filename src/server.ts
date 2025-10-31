@@ -43,8 +43,7 @@ const corsOpts = {
   allowedHeaders: ["Content-Type", "Authorization", "x-requested-with", "Origin", "Accept"],
 };
 app.use(cors(corsOpts));
-// 프리플라이트 전역 허용
-app.options("*", cors(corsOpts));
+
 app.use(express.json({ limit: "5mb" }));
 app.use(express.urlencoded({ extended: true }))
   ;
