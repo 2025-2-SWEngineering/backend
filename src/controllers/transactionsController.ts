@@ -75,8 +75,8 @@ export async function byCategory(req: Request, res: Response, next: NextFunction
 
 export async function create(req: Request, res: Response, next: NextFunction) {
   try {
-    type CreateBody = { groupId: number; type: "income" | "expense"; amount: number; description: string; date: string; receiptUrl?: string };
-    const { groupId, type, amount, description, date, receiptUrl } = req.body as CreateBody;
+    type CreateBody = { groupId: number; type: "income" | "expense"; amount: number; description: string; date: string; receiptUrl?: string; category?: string };
+    const { groupId, type, amount, description, date, receiptUrl, category } = req.body as CreateBody;
     if (!groupId || !type || amount == null || !description || !date) {
       return res.status(400).json({ message: "groupId, type, amount, description, date는 필수입니다." });
     }
@@ -91,6 +91,7 @@ export async function create(req: Request, res: Response, next: NextFunction) {
       type,
       amount: Number(amount),
       hasReceipt: !!receiptUrl,
+      hasCategory: !!(category && String(category).trim()),
     });
     const tx = await createTransaction({
       groupId: Number(groupId),
@@ -100,6 +101,7 @@ export async function create(req: Request, res: Response, next: NextFunction) {
       date,
       receiptUrl,
       createdBy: req.user!.id,
+      category: category && String(category).trim() ? String(category).trim() : null,
     });
     res.status(201).json({ transaction: tx });
   } catch (err) {
@@ -111,8 +113,8 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 export async function update(req: Request, res: Response, next: NextFunction) {
   try {
     const id = Number(req.params.id);
-    type UpdateBody = { groupId: number; type?: "income" | "expense"; amount?: number; description?: string; date?: string; receiptUrl?: string };
-    const { groupId, type, amount, description, date, receiptUrl } = req.body as UpdateBody;
+    type UpdateBody = { groupId: number; type?: "income" | "expense"; amount?: number; description?: string; date?: string; receiptUrl?: string; category?: string };
+    const { groupId, type, amount, description, date, receiptUrl, category } = req.body as UpdateBody;
     if (!id || !groupId) return res.status(400).json({ message: "id, groupId가 필요합니다." });
     const tx = await getTransactionById(id);
     if (!tx || tx.group_id !== Number(groupId)) return res.status(404).json({ message: "거래를 찾을 수 없습니다." });
@@ -123,7 +125,7 @@ export async function update(req: Request, res: Response, next: NextFunction) {
     if (type && !["income", "expense"].includes(type)) {
       return res.status(400).json({ message: "type은 income|expense 만 허용됩니다." });
     }
-    const updated = await updateTransaction(id, { type, amount, description, date, receiptUrl });
+    const updated = await updateTransaction(id, { type, amount, description, date, receiptUrl, category });
     res.json({ transaction: updated });
   } catch (err) {
     next(err);
