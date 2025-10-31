@@ -36,7 +36,10 @@ const HOST = process.env.HOST || '0.0.0.0';
 // 미들웨어 설정
 const corsOrigin = process.env.CORS_ORIGIN || "http://localhost:3000";
 const corsAllowAll = String(process.env.CORS_ALLOW_ALL || "false").toLowerCase() === "true";
-app.use(helmet());
+
+//hsts 비활성화
+app.use(helmet({ hsts: false }));
+
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
@@ -56,13 +59,14 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "x-requested-with"],
   })
 );
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi as unknown as Record<string, unknown>));
 // 로컬 파일 정적 서빙 (S3 미사용 개발 환경용)
 app.use("/files", express.static(LOCAL_UPLOAD_DIR));
 
 // API 라우트 마운트
 app.use("/api", router);
 // Swagger UI
-app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(openapi as unknown as Record<string, unknown>));
+
 
 // 기본 루트 및 헬스체크
 app.get("/", (_req, res) => {
