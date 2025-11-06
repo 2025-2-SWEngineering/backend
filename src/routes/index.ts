@@ -7,6 +7,7 @@ import uploadsRouter from "./uploads.js";
 import duesRouter from "./dues.js";
 import reportsRouter from "./reports.js";
 import userPreferencesRouter from "./userPreferences.js";
+import ocrRouter from "./ocr.js";
 
 const router = express.Router();
 
@@ -19,6 +20,7 @@ router.use("/groups", groupsRouter);
 router.use("/invitations", invitationsRouter);
 router.use("/transactions", transactionsRouter);
 router.use("/uploads", uploadsRouter);
+router.use("/ocr", ocrRouter);
 router.use("/dues", duesRouter);
 router.use("/reports", reportsRouter);
 router.use("/user", userPreferencesRouter);
