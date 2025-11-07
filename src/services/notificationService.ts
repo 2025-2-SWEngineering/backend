@@ -1,5 +1,6 @@
 import pool from "../config/database.js";
 import { insertNotificationLog } from "../models/notificationLogModel.js";
+import { sendPushNotificationsToUsers } from "./pushService.js";
 
 export async function sendDuesReminder({
     toEmail,
@@ -90,12 +91,30 @@ export async function testDuesRemindersForGroup(
         }
 
         try {
+            // 이메일 알림 발송
             await sendDuesReminder({
                 toEmail: user.email,
                 userName: user.user_name,
                 groupName: user.group_name,
                 unpaidCount: user.unpaid_count,
             });
+
+            // 푸시 알림 발송
+            try {
+                await sendPushNotificationsToUsers([user.user_id], {
+                    title: "회비 납부 알림",
+                    body: `${user.group_name}: 미납 ${user.unpaid_count}건이 있습니다.`,
+                    data: {
+                        type: "dues_reminder",
+                        groupId: user.group_id,
+                        unpaidCount: user.unpaid_count,
+                    },
+                });
+            } catch (pushErr) {
+                // 푸시 알림 실패는 무시 (이메일은 성공했으므로)
+                // eslint-disable-next-line no-console
+                console.warn(`Push notification failed for user ${user.user_id}:`, pushErr);
+            }
 
             await insertNotificationLog({
                 userId: user.user_id,

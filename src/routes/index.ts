@@ -9,6 +9,7 @@ import reportsRouter from "./reports.js";
 import userPreferencesRouter from "./userPreferences.js";
 import ocrRouter from "./ocr.js";
 import notificationsRouter from "./notifications.js";
+import pushRouter from "./push.js";
 
 const router = express.Router();
 
@@ -26,5 +27,6 @@ router.use("/dues", duesRouter);
 router.use("/reports", reportsRouter);
 router.use("/user", userPreferencesRouter);
 router.use("/notifications", notificationsRouter);
+router.use("/push", pushRouter);
 
 export default router;
