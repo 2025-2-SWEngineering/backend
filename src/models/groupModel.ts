@@ -75,9 +75,10 @@ export async function createGroup({
     return group;
 }
 
-export async function getGroupsForUser(userId: number): Promise<Array<GroupRow & { user_role: string }>> {
-    const { rows } = await pool.query<(GroupRow & { user_role: string })>(
-        `SELECT g.id, g.name, g.code, g.created_at, ug.role as user_role
+export async function getGroupsForUser(userId: number): Promise<Array<GroupRow & { user_role: string; member_count: number }>> {
+    const { rows } = await pool.query<(GroupRow & { user_role: string; member_count: number })>(
+        `SELECT g.id, g.name, g.code, g.created_at, ug.role as user_role,
+            (SELECT COUNT(*)::int FROM user_groups WHERE group_id = g.id) as member_count
      FROM user_groups ug
      JOIN groups g ON g.id = ug.group_id
      WHERE ug.user_id = $1
