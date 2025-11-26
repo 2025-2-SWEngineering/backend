@@ -54,15 +54,15 @@ app.use(express.urlencoded({ extended: true }))
 // 보안 헤더(임시로 HSTS 비활성화)
 app.use(helmet({ strictTransportSecurity: false }));
 // 프리플라이트(OPTIONS)는 rate limit 제외
-app.use(
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 1000,
-    standardHeaders: true,
-    legacyHeaders: false,
-    skip: (req) => req.method === "OPTIONS",
-  })
-);
+// app.use(
+//   rateLimit({
+//     windowMs: 15 * 60 * 1000,
+//     max: 1000,
+//     standardHeaders: true,
+//     legacyHeaders: false,
+//     skip: (req) => req.method === "OPTIONS",
+//   })
+// );
 
 
 // 로컬 파일 정적 서빙 (S3 미사용 개발 환경용)
