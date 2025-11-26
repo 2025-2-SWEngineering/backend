@@ -15,6 +15,7 @@ import { createInvitation } from "../models/invitationModel.js";
 export async function list(req: Request, res: Response, next: NextFunction) {
     try {
         const groups = await getGroupsForUser(req.user!.id);
+        console.log("[DEBUG] groups list:", JSON.stringify(groups, null, 2));
         res.json({ groups });
     } catch (err) {
         next(err);
