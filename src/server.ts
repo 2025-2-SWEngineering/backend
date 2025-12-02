@@ -17,6 +17,7 @@ import {
   insertNotificationLog,
 } from "./models/notificationLogModel.js";
 import { initPushSubscriptionModel } from "./models/pushSubscriptionModel.js";
+import { initFcmTokenModel } from "./models/fcmTokenModel.js";
 import { sendDuesReminder } from "./services/notificationService.js";
 import cron from "node-cron";
 import swaggerUi from "swagger-ui-express";
@@ -96,6 +97,7 @@ async function start(): Promise<void> {
     await initUserPreferenceModel();
     await initNotificationLogModel();
     await initPushSubscriptionModel();
+    await initFcmTokenModel();
     app.listen(PORT, HOST, () => {
       console.log(`서버가 http://localhost:${PORT}에서 실행 중입니다.`);
       const aws = awsConfigStatus();
