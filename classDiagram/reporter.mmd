@@ -1,0 +1,127 @@
+%% Report Generation class diagram — focused on requests, jobs, generator, storage, exporters,
+%% data sources, scheduler, notifications, and cache
+%% Shows: Generalization, Composition, Aggregation, Association, Dependency
+classDiagram
+direction LR
+
+class User {
+  +id
+  +email
+  +requestReport(type, params)
+}
+
+class ReportRequest {
+  +id
+  +userId
+  +type
+  +params
+  +createdAt
+}
+
+class ReportJob {
+  +id
+  +status
+  +createdAt
+  +run()
+}
+
+class Report {
+  +id
+  +type
+  +format
+  +locationUrl
+  +size
+}
+
+class PDFReport
+class CSVReport
+
+class ReportGenerator {
+  +generate(request)
+  +assembleData()
+}
+
+class ReportRepository {
+  +save(report)
+  +findById(id)
+}
+
+class ReportStorage {
+  +saveFile(buffer, path)
+  +getUrl(path)
+}
+
+class TransactionsService {
+  +queryTransactions(q)
+}
+
+class DuesService {
+  +queryDues(q)
+}
+
+class UploadsService {
+  +getUploads(q)
+}
+
+class PDFLib
+class CsvExporter
+
+class Scheduler {
+  +schedule(reportRequest)
+}
+
+class NotificationService {
+  +notifyUser(userId, payload)
+}
+
+class Cache {
+  +get(key)
+  +set(key, value)
+}
+
+%% Relationships (5 types)
+
+%% Association: User creates ReportRequest
+User "1" --> "0..*" ReportRequest : creates
+
+%% Association: Scheduler triggers ReportJob from a ReportRequest
+Scheduler "1" --> "0..*" ReportJob : schedules
+
+%% Composition: ReportJob composes Report (job lifecycle owns the generated report)
+ReportJob "1" *-- "0..1" Report : generates
+
+%% Aggregation: ReportRepository aggregates Reports (persisted storage)
+ReportRepository "1" o-- "*" Report : stores
+
+%% Dependency: ReportGenerator depends on Transactions/Dues/Uploads services
+ReportGenerator ..> TransactionsService : depends on
+ReportGenerator ..> DuesService : depends on
+ReportGenerator ..> UploadsService : depends on
+
+%% Dependency: ReportGenerator uses exporters/libs
+ReportGenerator ..> PDFLib : uses
+ReportGenerator ..> CsvExporter : uses
+
+%% Generalization: PDFReport and CSVReport are specializations of Report
+Report <|-- PDFReport
+Report <|-- CSVReport
+
+%% Aggregation: ReportStorage is an external aggregated resource used to keep report files
+Report "*" o-- "1" ReportStorage : savedIn
+
+%% Association: After generation, NotificationService notifies User
+ReportJob "1" --> "1" NotificationService : notifies
+NotificationService "1" --> "1" User : notifies
+
+%% Dependency: Generator and Scheduler use Cache for intermediate data
+ReportGenerator ..> Cache : caches
+Scheduler ..> Cache : caches
+
+%% Multiplicities and clarifying labels
+ReportGenerator "1" -- "1" ReportJob : works-on
+ReportStorage "1" -- "1" AwsS3 : implements
+
+%% External implementation hint (renderers/storage) — not full class definitions
+class AwsS3
+
+%% End

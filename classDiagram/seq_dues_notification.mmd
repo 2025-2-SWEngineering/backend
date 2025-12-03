@@ -1,0 +1,46 @@
+%% Sequence diagram: Overdue dues detection and debtor notification
+%% Flow: Scheduler (cron) -> OverdueChecker -> DuesService/Repository -> OverdueBatch -> NotificationService -> Notifiers -> NotificationLog -> mark notified
+sequenceDiagram
+    autonumber
+    participant Cron as Scheduler (cron)
+    participant Checker as OverdueChecker
+    participant DuesSvc as DuesService
+    participant DuesRepo as DuesRepository
+    participant Batch as OverdueBatch
+    participant NotifSvc as NotificationService
+    participant Push as PushService/FCM
+    participant Email as EmailService
+    participant Log as NotificationLogModel
+    participant User as User
+
+    Note over Cron, Checker: Periodic scheduled task runs
+    Cron->>Checker: checkAndCreateBatch()
+    Checker->>DuesSvc: getOverdue(cutoffDate)
+    DuesSvc->>DuesRepo: findOverdue(cutoffDate)
+    DuesRepo-->>DuesSvc: overdueRecords
+    DuesSvc-->>Checker: overdueRecords
+
+    Checker->>Batch: create(overdueRecords)
+    Batch-->>Checker: batchId
+
+    Note over Checker,Batch: iterate each overdue record
+    loop for each overdueRecord
+        Checker->>NotifSvc: prepareMessage(record)
+        alt hasPushToken
+            NotifSvc->>Push: sendPush(userId, payload)
+            Push-->>NotifSvc: pushResult
+        else noPushToken / push failed
+            NotifSvc->>Email: sendEmail(userEmail, content)
+            Email-->>NotifSvc: emailResult
+        end
+        NotifSvc->>Log: insertNotificationLog({userId, type, status})
+        Log-->>NotifSvc: logId
+        NotifSvc->>DuesSvc: markNotified(recordId)
+        DuesSvc-->>NotifSvc: ok
+    end
+
+    Checker-->>Cron: finished (batchId)
+
+    Note over NotifSvc,Log: notifications persisted for auditing
+
+%% End

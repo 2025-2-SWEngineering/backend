@@ -1,0 +1,106 @@
+classDiagram
+  %% Mapping: BcryptLib = npm package 'bcrypt', EmailService = your email/sms provider
+
+  %% --- Core infra ---
+  class Server {
+    +start()
+    +initDb()
+  }
+  class Database {
+    +connect()
+    +query(sql, params)
+  }
+
+  %% --- Controllers ---
+  class AuthController {
+    +register(req,res)
+    +login(req,res)
+    +refresh(req,res)
+  }
+  class GroupsController {
+    +createGroup(req,res)
+    +addMember(req,res)
+    +removeMember(req,res)
+    +listGroups(req,res)
+  }
+  class UsersController {
+    +getProfile(req,res)
+    +updateProfile(req,res)
+    +deleteUser(req,res)
+  }
+
+  %% --- Services ---
+  class JwtService {
+    +signAccessToken()
+    +signRefreshToken()
+    +verifyRefreshToken()
+  }
+  class NotificationService {
+    +notifyUser(userId,msg)
+  }
+
+  %% --- Models ---
+  class UserModel {
+    +createUser(...)
+    +getUserByEmail(email)
+    +findById(id)
+  }
+  class GroupModel {
+    +createGroup(...)
+    +addMember(...)
+    +getMembers(groupId)
+  }
+  class InvitationModel {
+    +createInvitation(...)
+    +deleteExpiredInvitations()
+  }
+  class UserPreferenceModel {
+    +getPreferences(userId)
+  }
+
+  %% --- Conceptual generalization (for readability) ---
+  class ControllerBase
+  class ModelBase
+  ControllerBase <|-- AuthController
+  ControllerBase <|-- GroupsController
+  ControllerBase <|-- UsersController
+
+  ModelBase <|-- UserModel
+  ModelBase <|-- GroupModel
+  ModelBase <|-- InvitationModel
+  ModelBase <|-- UserPreferenceModel
+
+  %% --- Composition (DB owns tables/lifecycle) ---
+  Database *-- UserModel
+  Database *-- GroupModel
+  Database *-- InvitationModel
+  Database *-- UserPreferenceModel
+
+  %% --- Aggregation (Server wires controllers/services) ---
+  Server o-- AuthController
+  Server o-- GroupsController
+  Server o-- UsersController
+  Server o-- JwtService
+  Server o-- NotificationService
+
+  %% --- Association (persistent references / usage) ---
+  AuthController --> JwtService : uses (sign/verify)
+  AuthController --> UserModel : create/get user
+  UsersController --> UserModel : read/update/delete
+  GroupsController --> GroupModel : manage groups
+  GroupsController --> UserModel : check user existence
+  GroupModel --> UserModel : references members
+  InvitationModel --> UserModel : references inviter/invitee
+
+  %% --- Dependency (transient / external libs or runtime calls) ---
+  AuthController ..> BcryptLib : uses hashing
+  AuthController ..> JwtService : depends-on (token)
+  NotificationService ..> EmailService : depends-on (send email/sms)
+  GroupsController ..> InvitationModel : depends-on (create invitations)
+  UserModel ..> Database : uses pool.query()
+  GroupModel ..> Database : uses pool.query()
+
+  %% --- External lib placeholders (simple identifiers, no special chars) ---
+  class BcryptLib
+  class EmailService
+  %% (BcryptLib = npm 'bcrypt'; EmailService = external email/SMS provider)

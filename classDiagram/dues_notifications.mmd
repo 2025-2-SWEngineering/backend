@@ -1,0 +1,135 @@
+%% Dues overdue detection & debtor notification class diagram
+%% Shows: Generalization, Composition, Aggregation, Association, Dependency
+classDiagram
+direction LR
+
+class User {
+  +id
+  +email
+  +phone
+}
+
+class Group {
+  +id
+  +name
+}
+
+class Membership {
+  +id
+  +userId
+  +groupId
+}
+
+class DuesRecord {
+  +id
+  +membershipId
+  +amount
+  +dueDate
+  +status
+}
+
+class DuesRepository {
+  +findOverdue(cutoffDate)
+  +save(record)
+}
+
+class DuesService {
+  +getOverdue(cutoffDate)
+  +markNotified(recordId)
+}
+
+class OverdueChecker {
+  +checkAndCreateBatch()
+}
+
+class OverdueBatch {
+  +id
+  +records
+  +createdAt
+}
+
+class Notifier {
+  +notify(user, message)
+}
+
+class EmailNotifier {
+  +notify(user, message)
+}
+
+class PushNotifier {
+  +notify(user, message)
+}
+
+class NotificationService {
+  +sendToUser(user, payload)
+  +logNotification(entry)
+}
+
+class NotificationLog {
+  +id
+  +userId
+  +type
+  +sentAt
+}
+
+class Scheduler {
+  +scheduleRecurring(task)
+}
+
+class PushService
+class EmailService
+
+%% Relationships (five types)
+
+%% Aggregation: Group aggregates Membership (members can exist independently)
+Group "1" o-- "0..*" Membership : has-members
+
+%% Association: Membership links to User
+Membership "1" --> "1" User : links
+
+%% Aggregation: DuesRepository stores DuesRecords
+DuesRepository "1" o-- "0..*" DuesRecord : stores
+
+%% Dependency: DuesService depends on DuesRepository and Membership/User to assemble data
+DuesService ..> DuesRepository : depends on
+DuesService ..> Membership : depends on
+
+%% Association: OverdueChecker queries DuesService for overdue records
+OverdueChecker "1" --> "0..*" DuesRecord : finds
+
+%% Composition: OverdueBatch composes DuesRecord (batch owns snapshot of records)
+OverdueBatch "1" *-- "1..*" DuesRecord : contains
+
+%% Association: OverdueChecker creates OverdueBatch
+OverdueChecker "1" --> "0..*" OverdueBatch : creates
+
+%% Generalization: Concrete notifiers implement Notifier interface
+Notifier <|-- EmailNotifier
+Notifier <|-- PushNotifier
+
+%% Dependency: NotificationService uses Notifier implementations and external services
+NotificationService ..> Notifier : uses
+NotificationService ..> PushService : depends on
+NotificationService ..> EmailService : depends on
+
+%% Association: NotificationService logs notifications
+NotificationService "1" --> "0..*" NotificationLog : logs
+
+%% Dependency: OverdueBatch depends on NotificationService to notify debtors
+OverdueBatch ..> NotificationService : depends on
+
+%% Scheduler triggers the OverdueChecker periodically
+Scheduler "1" --> "0..*" OverdueChecker : triggers
+
+%% Multiplicities and clarifying labels
+User "1" -- "0..*" DuesRecord : owes
+OverdueBatch "1" -- "1" OverdueChecker : generated-by
+
+%% External service hints
+class AwsS3
+class FirebaseFCM
+
+NotificationService ..> FirebaseFCM : optional push transport
+NotificationService ..> EmailService : smtp transport
+
+%% End
