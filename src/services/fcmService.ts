@@ -158,8 +158,35 @@ export async function unsubscribeTokensFromTopic(
   }
 }
 
+/**
+ * Send a message to a topic (e.g., `group_123`).
+ */
+export async function sendToTopic(
+  topic: string,
+  payload: {
+    notification?: { title?: string; body?: string };
+    data?: Record<string, string>;
+  }
+): Promise<{ messageId?: string } | null> {
+  ensureInitialized();
+  try {
+    const message: admin.messaging.Message = {
+      topic,
+      notification: payload.notification,
+      data: payload.data,
+    } as unknown as admin.messaging.Message;
+    const resp = await admin.messaging().send(message as any);
+    return { messageId: resp };
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error("[FCM] sendToTopic failed:", err);
+    return null;
+  }
+}
+
 export default {
   sendToTokens,
   subscribeTokensToTopic,
   unsubscribeTokensFromTopic,
+  sendToTopic,
 };
