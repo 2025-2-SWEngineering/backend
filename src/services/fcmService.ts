@@ -170,10 +170,26 @@ export async function sendToTopic(
 ): Promise<{ messageId?: string } | null> {
   ensureInitialized();
   try {
+    // To avoid duplicate notifications (browser may auto-display when `notification` is present),
+    // send data-only payloads for web clients and include title/body inside `data` as strings.
+    const dataPayload: Record<string, string> = {};
+    if (payload.data) {
+      Object.keys(payload.data).forEach((k) => {
+        const v = payload.data![k];
+        dataPayload[k] = String(v);
+      });
+    }
+    if (payload.notification) {
+      if (payload.notification.title)
+        dataPayload.title = String(payload.notification.title);
+      if (payload.notification.body)
+        dataPayload.body = String(payload.notification.body);
+    }
+
     const message: admin.messaging.Message = {
       topic,
-      notification: payload.notification,
-      data: payload.data,
+      // do not include `notification` field to prevent automatic display by the browser/SDK
+      data: dataPayload,
     } as unknown as admin.messaging.Message;
     const resp = await admin.messaging().send(message as any);
     return { messageId: resp };
