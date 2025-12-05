@@ -32,6 +32,7 @@ import { LOCAL_UPLOAD_DIR } from "./config/storageConfig.js";
 dotenv.config();
 
 const app = express();
+app.set("trust proxy", true);
 const PORT: number = process.env.PORT ? Number(process.env.PORT) : 3001;
 const HOST = process.env.HOST || '0.0.0.0';
 
