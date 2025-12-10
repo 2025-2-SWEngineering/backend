@@ -5,11 +5,7 @@ import {
   getFcmTokensByUserIds,
   deleteFcmTokensByToken,
 } from "../models/fcmTokenModel.js";
-import {
-  sendToTokens,
-  subscribeTokensToTopic,
-} from "../services/fcmService.js";
-import { getGroupsForUser } from "../models/groupModel.js";
+import { sendToTokens } from "../services/fcmService.js";
 import pool from "../config/database.js";
 
 // 클라이언트에서 받은 FCM 토큰을 저장합니다.
@@ -62,7 +58,7 @@ export async function unregisterToken(
   }
 }
 
-// 관리자 전용: 지정한 사용자들에게 테스트 알림 전송 (group 정보 포함)
+// 관리자 전용: 지정한 사용자들에게 테스트 알림 전송 (group 정보 포함, data-only)
 export async function sendTest(
   req: Request,
   res: Response,
@@ -112,12 +108,12 @@ export async function sendTest(
           extraData.groupId = String(body.groupId);
         }
       } catch (e) {
-        // 그룹 이름 못 가져와도 알림 자체는 가게끔 무시
+        // 그룹 이름 못 가져와도 알림 자체는 가게끔 groupId만 세팅
         extraData.groupId = String(body.groupId);
       }
     }
 
-    // 🔥 data-only payload
+    // 🔥 data-only payload: title/body + groupId/groupName 모두 data에 실어 보냄
     const payload = {
       data: {
         title: body.title || "테스트 알림",
