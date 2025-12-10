@@ -131,11 +131,11 @@ export async function sendTest(
     }
 
     const payload = {
-      notification: {
+      data: {
         title: body.title || "테스트 알림",
         body: body.body || "테스트 메시지입니다.",
+        ...(body.data || {}),
       },
-      data: body.data || {},
     };
 
     const result = await sendToTokens(tokens, payload);
