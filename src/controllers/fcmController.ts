@@ -154,3 +154,27 @@ export async function sendTest(
     next(err);
   }
 }
+
+// Verify whether the provided token is registered for the current user
+export async function verifyToken(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = req.user!.id;
+    const token = (req.query.token as string) || (req.body && req.body.token);
+    if (!token) {
+      return res.status(400).json({ message: "token이 필요합니다." });
+    }
+    // check DB
+    const { rows } = await pool.query<{ count: string }>(
+      `SELECT COUNT(*)::text AS count FROM fcm_tokens WHERE user_id = $1 AND token = $2 LIMIT 1`,
+      [userId, token]
+    );
+    const exists = Number(rows[0]?.count || 0) > 0;
+    return res.json({ exists });
+  } catch (err) {
+    next(err);
+  }
+}
