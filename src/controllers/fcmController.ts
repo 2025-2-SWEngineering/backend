@@ -120,6 +120,7 @@ export async function sendTest(
       title?: string;
       body?: string;
       data?: Record<string, string>;
+      groupId?: number; // optional: include group id to identify source
     };
     if (!body.userIds || body.userIds.length === 0) {
       return res.status(400).json({ message: "userIds가 필요합니다." });
@@ -130,11 +131,36 @@ export async function sendTest(
       return res.json({ sent: 0, message: "대상 토큰이 없습니다." });
     }
 
+    // If a groupId was provided, try to include the group's name in the payload
+    let extraData: Record<string, string> = {};
+    if (body.groupId) {
+      try {
+        const { rows } = await pool.query<{ name: string }>(
+          `SELECT name FROM groups WHERE id = $1 LIMIT 1`,
+          [body.groupId]
+        );
+        const groupName = rows[0]?.name;
+        if (groupName) {
+          extraData.groupId = String(body.groupId);
+          extraData.groupName = groupName;
+        } else {
+          extraData.groupId = String(body.groupId);
+        }
+      } catch (e) {
+        // ignore DB errors for this optional enhancement
+      }
+    }
+
     const payload = {
       data: {
         title: body.title || "테스트 알림",
         body: body.body || "테스트 메시지입니다.",
         ...(body.data || {}),
+        ...extraData,
+      },
+      notification: {
+        title: body.title || "테스트 알림",
+        body: body.body || "테스트 메시지입니다.",
       },
     };
 
