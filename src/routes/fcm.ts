@@ -3,7 +3,7 @@ import {
   registerToken,
   unregisterToken,
   sendTest,
-  verifyToken,
+  checkTokenRegistered,
 } from "../controllers/fcmController.js";
 import { authenticateToken } from "../middleware/auth.js";
 
@@ -16,6 +16,6 @@ router.post("/unregister", unregisterToken);
 
 // 테스트 전송은 관리자만 사용(requires controller-level check)
 router.post("/send-test", sendTest);
-router.get("/verify", authenticateToken, verifyToken);
+router.get("/verify", authenticateToken, checkTokenRegistered);
 
 export default router;

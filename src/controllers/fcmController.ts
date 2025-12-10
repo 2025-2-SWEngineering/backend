@@ -19,93 +19,57 @@ export async function registerToken(
   next: NextFunction
 ) {
   try {
-    // Temporary debug: log incoming register attempts (mask sensitive values)
-    try {
-      const incomingAuth =
-        (req.headers["authorization"] as string | undefined) || "(none)";
-      const maskedAuth =
-        incomingAuth && incomingAuth !== "(none)"
-          ? `${incomingAuth.slice(0, 10)}...`
-          : incomingAuth;
-      const bodyToken =
-        req.body && req.body.token
-          ? `${String(req.body.token).slice(0, 8)}...`
-          : "(no-token)";
-      // eslint-disable-next-line no-console
-      console.debug(
-        `[FCM-register] ${new Date().toISOString()} userPresent=${!!req.user} auth=${maskedAuth} bodyToken=${bodyToken} path=${
-          req.originalUrl
-        }`
-      );
-    } catch (e) {
-      // ignore logging errors
-    }
-    const userId = req.user!.id;
+    const userId = req.user!.id as number;
     const { token, platform } = req.body as {
       token?: string;
       platform?: string;
     };
+
     if (!token) {
       return res.status(400).json({ message: "token이 필요합니다." });
     }
 
-    await saveFcmToken(userId, token, platform);
-    // subscribe this token to topics for groups the user already belongs to
-    try {
-      const groups = await getGroupsForUser(userId);
-      if (groups && groups.length > 0) {
-        const topics = groups.map((g) => `group_${g.id}`);
-        // subscribe token to each topic (subscribeToTopic accepts array of tokens)
-        for (const topic of topics) {
-          try {
-            await subscribeTokensToTopic([token], topic);
-          } catch (e) {
-            // ignore per-topic errors
-            // eslint-disable-next-line no-console
-            console.warn("[FCM] failed to subscribe token to topic", topic, e);
-          }
-        }
-      }
-    } catch (e) {
-      // ignore group fetch/subscribe errors
-      // eslint-disable-next-line no-console
-      console.warn("[FCM] failed to auto-subscribe token to user groups", e);
-    }
+    await saveFcmToken({
+      userId,
+      token,
+      platform: platform || "web",
+    });
+
     res.json({ message: "FCM 토큰이 등록되었습니다." });
   } catch (err) {
     next(err);
   }
 }
 
-// 사용자 토큰 삭제
+// FCM 토큰 삭제
 export async function unregisterToken(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
   try {
-    const userId = req.user!.id;
+    const userId = req.user!.id as number;
     const { token } = req.body as { token?: string };
+
     if (!token) {
       return res.status(400).json({ message: "token이 필요합니다." });
     }
 
-    await deleteFcmToken(userId, token);
+    await deleteFcmToken({ userId, token });
     res.json({ message: "FCM 토큰이 삭제되었습니다." });
   } catch (err) {
     next(err);
   }
 }
 
-// 관리자 전용: 지정한 사용자들에게 테스트 알림 전송
+// 관리자 전용: 지정한 사용자들에게 테스트 알림 전송 (group 정보 포함)
 export async function sendTest(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
   try {
-    // 관리자 권한 확인: 간단히 users 테이블의 role이 'admin'인지 확인
-    const userId = req.user!.id;
+    const userId = req.user!.id as number;
     const { rows } = await pool.query<{ role: string }>(
       `SELECT role FROM users WHERE id = $1 LIMIT 1`,
       [userId]
@@ -120,8 +84,9 @@ export async function sendTest(
       title?: string;
       body?: string;
       data?: Record<string, string>;
-      groupId?: number; // optional: include group id to identify source
+      groupId?: number;
     };
+
     if (!body.userIds || body.userIds.length === 0) {
       return res.status(400).json({ message: "userIds가 필요합니다." });
     }
@@ -131,15 +96,15 @@ export async function sendTest(
       return res.json({ sent: 0, message: "대상 토큰이 없습니다." });
     }
 
-    // If a groupId was provided, try to include the group's name in the payload
+    // groupId 가 있으면 groupName 조회해서 data에 추가
     let extraData: Record<string, string> = {};
     if (body.groupId) {
       try {
-        const { rows } = await pool.query<{ name: string }>(
+        const result = await pool.query<{ name: string }>(
           `SELECT name FROM groups WHERE id = $1 LIMIT 1`,
           [body.groupId]
         );
-        const groupName = rows[0]?.name;
+        const groupName = result.rows[0]?.name;
         if (groupName) {
           extraData.groupId = String(body.groupId);
           extraData.groupName = groupName;
@@ -147,10 +112,12 @@ export async function sendTest(
           extraData.groupId = String(body.groupId);
         }
       } catch (e) {
-        // ignore DB errors for this optional enhancement
+        // 그룹 이름 못 가져와도 알림 자체는 가게끔 무시
+        extraData.groupId = String(body.groupId);
       }
     }
 
+    // 🔥 data-only payload
     const payload = {
       data: {
         title: body.title || "테스트 알림",
@@ -158,15 +125,10 @@ export async function sendTest(
         ...(body.data || {}),
         ...extraData,
       },
-      notification: {
-        title: body.title || "테스트 알림",
-        body: body.body || "테스트 메시지입니다.",
-      },
     };
 
     const result = await sendToTokens(tokens, payload);
 
-    // 유효하지 않은 토큰이 있으면 DB에서 삭제
     if (result.invalidTokens && result.invalidTokens.length > 0) {
       await deleteFcmTokensByToken(result.invalidTokens);
     }
@@ -181,21 +143,23 @@ export async function sendTest(
   }
 }
 
-// Verify whether the provided token is registered for the current user
-export async function verifyToken(
+// 특정 토큰이 이미 등록되어 있는지 확인 (옵션용)
+export async function checkTokenRegistered(
   req: Request,
   res: Response,
   next: NextFunction
 ) {
   try {
-    const userId = req.user!.id;
-    const token = (req.query.token as string) || (req.body && req.body.token);
+    const userId = req.user!.id as number;
+    const { token } = req.body as { token?: string };
+
     if (!token) {
       return res.status(400).json({ message: "token이 필요합니다." });
     }
-    // check DB
+
     const { rows } = await pool.query<{ count: string }>(
-      `SELECT COUNT(*)::text AS count FROM fcm_tokens WHERE user_id = $1 AND token = $2 LIMIT 1`,
+      `SELECT COUNT(*)::text AS count FROM fcm_tokens 
+       WHERE user_id = $1 AND token = $2 LIMIT 1`,
       [userId, token]
     );
     const exists = Number(rows[0]?.count || 0) > 0;

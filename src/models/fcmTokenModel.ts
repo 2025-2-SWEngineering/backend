@@ -25,11 +25,13 @@ export async function initFcmTokenModel(): Promise<void> {
 }
 
 // 토큰 저장: 이미 존재하면 업데이트
-export async function saveFcmToken(
-  userId: number,
-  token: string,
-  platform?: string
-): Promise<FcmTokenRow> {
+export async function saveFcmToken(params: {
+  userId: number;
+  token: string;
+  platform?: string;
+}): Promise<FcmTokenRow> {
+  const { userId, token, platform } = params;
+
   const { rows } = await pool.query<FcmTokenRow>(
     `INSERT INTO fcm_tokens (user_id, token, platform)
      VALUES ($1, $2, $3)
@@ -38,19 +40,20 @@ export async function saveFcmToken(
      RETURNING *`,
     [userId, token, platform || null]
   );
-  return rows[0] as FcmTokenRow;
+  return rows[0];
 }
 
-export async function deleteFcmToken(
-  userId: number,
-  token: string
-): Promise<void> {
+export async function deleteFcmToken(params: {
+  userId: number;
+  token: string;
+}): Promise<void> {
+  const { userId, token } = params;
+
   await pool.query(`DELETE FROM fcm_tokens WHERE user_id = $1 AND token = $2`, [
     userId,
     token,
   ]);
 }
-
 export async function deleteFcmTokensByToken(tokens: string[]): Promise<void> {
   if (tokens.length === 0) return;
   await pool.query(`DELETE FROM fcm_tokens WHERE token = ANY($1::text[])`, [
