@@ -19,6 +19,27 @@ export async function registerToken(
   next: NextFunction
 ) {
   try {
+    // Temporary debug: log incoming register attempts (mask sensitive values)
+    try {
+      const incomingAuth =
+        (req.headers["authorization"] as string | undefined) || "(none)";
+      const maskedAuth =
+        incomingAuth && incomingAuth !== "(none)"
+          ? `${incomingAuth.slice(0, 10)}...`
+          : incomingAuth;
+      const bodyToken =
+        req.body && req.body.token
+          ? `${String(req.body.token).slice(0, 8)}...`
+          : "(no-token)";
+      // eslint-disable-next-line no-console
+      console.debug(
+        `[FCM-register] ${new Date().toISOString()} userPresent=${!!req.user} auth=${maskedAuth} bodyToken=${bodyToken} path=${
+          req.originalUrl
+        }`
+      );
+    } catch (e) {
+      // ignore logging errors
+    }
     const userId = req.user!.id;
     const { token, platform } = req.body as {
       token?: string;
