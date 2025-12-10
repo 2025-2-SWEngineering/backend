@@ -1,13 +1,28 @@
 import { Request, Response, NextFunction } from "express";
 import bcrypt from "bcryptjs";
+import pool from "../config/database.js";
 import { createUser, getUserByEmail } from "../models/userModel.js";
-import { signAccessToken, signRefreshToken, verifyRefreshToken } from "../services/jwtService.js";
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+} from "../services/jwtService.js";
 
-export async function register(req: Request, res: Response, next: NextFunction) {
+export async function register(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   try {
-    const { email, password, name } = req.body as { email?: string; password?: string; name?: string };
+    const { email, password, name } = req.body as {
+      email?: string;
+      password?: string;
+      name?: string;
+    };
     if (!email || !password || !name) {
-      return res.status(400).json({ message: "email, password, name은 필수입니다." });
+      return res
+        .status(400)
+        .json({ message: "email, password, name은 필수입니다." });
     }
     const existing = await getUserByEmail(email);
     if (existing) {
@@ -26,17 +41,24 @@ export async function register(req: Request, res: Response, next: NextFunction) 
 
 export async function login(req: Request, res: Response, next: NextFunction) {
   try {
-    const { email, password } = req.body as { email?: string; password?: string };
+    const { email, password } = req.body as {
+      email?: string;
+      password?: string;
+    };
     if (!email || !password) {
       return res.status(400).json({ message: "email, password는 필수입니다." });
     }
     const user = await getUserByEmail(email);
     if (!user) {
-      return res.status(401).json({ message: "이메일 또는 비밀번호가 올바르지 않습니다." });
+      return res
+        .status(401)
+        .json({ message: "이메일 또는 비밀번호가 올바르지 않습니다." });
     }
     const isOk = await bcrypt.compare(password, user.password_hash);
     if (!isOk) {
-      return res.status(401).json({ message: "이메일 또는 비밀번호가 올바르지 않습니다." });
+      return res
+        .status(401)
+        .json({ message: "이메일 또는 비밀번호가 올바르지 않습니다." });
     }
     const safeUser = {
       id: user.id,
@@ -60,14 +82,40 @@ export async function refresh(req: Request, res: Response) {
     if (!refreshToken) {
       return res.status(400).json({ message: "refreshToken이 필요합니다." });
     }
-    const decoded = verifyRefreshToken<{ id: number; email: string; role?: string }>(refreshToken);
-    const payload = { id: decoded.id, email: decoded.email, role: decoded.role };
+    const decoded = verifyRefreshToken<{
+      id: number;
+      email: string;
+      role?: string;
+    }>(refreshToken);
+    const payload = {
+      id: decoded.id,
+      email: decoded.email,
+      role: decoded.role,
+    };
     const token = signAccessToken(payload);
     const nextRefreshToken = signRefreshToken(payload);
     return res.json({ token, refreshToken: nextRefreshToken });
   } catch (err) {
-    return res.status(401).json({ message: "리프레시 토큰이 유효하지 않습니다." });
+    return res
+      .status(401)
+      .json({ message: "리프레시 토큰이 유효하지 않습니다." });
   }
 }
 
-
+// 현재 토큰 기반으로 로그인한 사용자 정보를 반환합니다.
+export async function me(req: Request, res: Response) {
+  try {
+    const userId = req.user?.id;
+    if (!userId) return res.status(401).json({ message: "인증 필요" });
+    const { rows } = await pool.query(
+      `SELECT id, email, name, role, created_at FROM users WHERE id = $1 LIMIT 1`,
+      [userId]
+    );
+    const user = rows[0] || null;
+    if (!user)
+      return res.status(404).json({ message: "사용자를 찾을 수 없습니다." });
+    return res.json({ user });
+  } catch (err) {
+    return res.status(500).json({ message: "서버 오류" });
+  }
+}
