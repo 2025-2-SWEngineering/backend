@@ -166,37 +166,3 @@ export async function checkTokenRegistered(
     next(err);
   }
 }
-
-export async function createTransaction(
-  req: Request,
-  res: Response,
-  next: NextFunction
-) {
-  try {
-    const userId = req.user!.id as number;
-    const { groupId, amount, category } = req.body;
-
-    // 1) 거래 저장
-    // const transactionId = ... INSERT ... RETURNING id;
-
-    // 2) 이 그룹에 소속된 사용자들 ID 가져오기
-    // const targetUserIds = [...];
-
-    // 3) 알림 본문 만들기 (네가 쓰는 형식에 맞게)
-    const bodyText = `${category ?? ""} - ${amount}원`;
-
-    await sendTransactionCreatedNotification({
-      targetUserIds,
-      groupId,
-      transactionId,
-      titleText: "수입이 등록되었습니다",
-      bodyText,
-    });
-
-    res.status(201).json({
-      /* ... */
-    });
-  } catch (err) {
-    next(err);
-  }
-}
