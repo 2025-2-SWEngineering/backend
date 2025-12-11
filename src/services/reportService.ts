@@ -23,6 +23,10 @@ async function fetchReportData(groupId: number, from: string, to: string) {
      ORDER BY date ASC, id ASC`,
     [groupId, from, to]
   );
+  if (!tx || tx.length === 0) {
+    throw new Error("NO_DATA_FOUND");
+  }
+
   let totalIncome = 0;
   let totalExpense = 0;
   for (const t of tx as ReportRow[]) {

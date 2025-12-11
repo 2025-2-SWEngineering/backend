@@ -57,3 +57,11 @@ export async function setDuesStatus({
     );
   return rows[0];
 }
+export async function resetAllDues(groupId: number): Promise<void> {
+  await pool.query(
+    `UPDATE dues
+     SET is_paid = false, paid_at = NULL
+     WHERE group_id = $1`,
+    [groupId]
+  );
+}
