@@ -11,6 +11,7 @@ import {
   getCategoryStatsByGroup,
 } from "../models/transactionModel.js";
 import { sendToTopic } from "../services/fcmService.js";
+import pool from "../config/database.js"; // ✅ 그룹 이름 조회를 위해 추가
 
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
@@ -116,11 +117,9 @@ export async function create(req: Request, res: Response, next: NextFunction) {
     const { groupId, type, amount, description, date, receiptUrl, category } =
       req.body as CreateBody;
     if (!groupId || !type || amount == null || !description || !date) {
-      return res
-        .status(400)
-        .json({
-          message: "groupId, type, amount, description, date는 필수입니다.",
-        });
+      return res.status(400).json({
+        message: "groupId, type, amount, description, date는 필수입니다.",
+      });
     }
     if (!["income", "expense"].includes(type)) {
       return res
@@ -152,17 +151,44 @@ export async function create(req: Request, res: Response, next: NextFunction) {
         category && String(category).trim() ? String(category).trim() : null,
     });
 
-    // Send group topic notification about new transaction (non-blocking)
+    // ✅ FCM: 그룹 이름까지 포함해서 토픽 알림 전송 (논블로킹)
     try {
-      const title =
+      // 1) 그룹 이름 조회
+      let groupName: string | undefined;
+      try {
+        const { rows } = await pool.query<{ name: string }>(
+          `SELECT name FROM groups WHERE id = $1 LIMIT 1`,
+          [tx.group_id]
+        );
+        groupName = rows[0]?.name;
+      } catch (e) {
+        // 그룹 이름 못 가져와도 알림은 보내되, 이름만 없는 상태로 보냄
+        // eslint-disable-next-line no-console
+        console.warn("[FCM] failed to fetch group name for transaction", e);
+      }
+
+      // 2) 제목/본문 구성
+      const baseTitle =
         type === "income" ? "수입이 등록되었습니다" : "지출이 등록되었습니다";
       const bodyText = `${tx.description} - ${tx.amount.toLocaleString()}원`;
+
+      // 그룹 이름이 있으면 [그룹명] 붙이기
+      const notificationTitle = groupName
+        ? `[${groupName}] ${baseTitle}`
+        : baseTitle;
+
+      // 3) 토픽으로 전송 (notification + data)
       await sendToTopic(`group_${tx.group_id}`, {
-        notification: { title, body: bodyText },
+        notification: { title: notificationTitle, body: bodyText },
         data: {
           type: "transaction_created",
           groupId: String(tx.group_id),
           transactionId: String(tx.id),
+          // 프론트/서비스워커에서 활용할 수 있도록 groupName도 data에 실어줌
+          ...(groupName ? { groupName } : {}),
+          // 필요하면 data.title/body도 같이 넣어두면 좋음
+          title: baseTitle,
+          body: bodyText,
         },
       });
     } catch (e) {
@@ -173,6 +199,7 @@ export async function create(req: Request, res: Response, next: NextFunction) {
         e
       );
     }
+
     res.status(201).json({ transaction: tx });
   } catch (err) {
     console.error("[transactions] create failed", err);

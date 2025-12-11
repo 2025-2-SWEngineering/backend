@@ -8,6 +8,8 @@ import {
 import { sendToTokens } from "../services/fcmService.js";
 import pool from "../config/database.js";
 
+import { sendTransactionCreatedNotification } from "../services/notificationService.js";
+
 // 클라이언트에서 받은 FCM 토큰을 저장합니다.
 export async function registerToken(
   req: Request,
@@ -160,6 +162,40 @@ export async function checkTokenRegistered(
     );
     const exists = Number(rows[0]?.count || 0) > 0;
     return res.json({ exists });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function createTransaction(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const userId = req.user!.id as number;
+    const { groupId, amount, category } = req.body;
+
+    // 1) 거래 저장
+    // const transactionId = ... INSERT ... RETURNING id;
+
+    // 2) 이 그룹에 소속된 사용자들 ID 가져오기
+    // const targetUserIds = [...];
+
+    // 3) 알림 본문 만들기 (네가 쓰는 형식에 맞게)
+    const bodyText = `${category ?? ""} - ${amount}원`;
+
+    await sendTransactionCreatedNotification({
+      targetUserIds,
+      groupId,
+      transactionId,
+      titleText: "수입이 등록되었습니다",
+      bodyText,
+    });
+
+    res.status(201).json({
+      /* ... */
+    });
   } catch (err) {
     next(err);
   }
