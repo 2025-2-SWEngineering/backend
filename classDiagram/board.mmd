@@ -1,0 +1,93 @@
+%% Dashboard class diagram — focused on widgets, overview, reports, transactions, uploads/OCR, notifications, cache, and external libs
+%% Shows: Generalization, Composition, Aggregation, Association, Dependency
+classDiagram
+%% layout left-to-right for readability
+direction LR
+
+class Dashboard {
+	+render()
+	+refreshData()
+	+openWidget(id)
+}
+
+class Widget {
+	+render()
+	+resize()
+}
+
+class OverviewTab {
+	+loadOverview()
+	+refreshSummary()
+}
+
+
+
+class Transaction {
+	+id
+	+amount
+	+date
+}
+
+class DuesSection {
+	+listDues()
+}
+
+class CategoryChart {
+	+renderChart(data)
+}
+
+class Upload {
+	+fileName
+	+upload()
+}
+
+class OCRService {
+	+extractText(file)
+}
+
+class NotificationService {
+	+sendToUsers(payload)
+}
+
+class Cache {
+	+get(key)
+	+set(key, value)
+}
+
+class AwsS3
+%% Relationships demonstrating the five kinds
+
+%% Composition: Dashboard composes Widgets (widgets lifecycle tied to Dashboard)
+Dashboard "1" *-- "*" Widget : composes
+
+%% Aggregation: Dashboard aggregates OverviewTab (Overview can exist independently)
+Dashboard "1" o-- "1" OverviewTab : aggregates
+
+%% Association: OverviewTab reads Transactions (regular association)
+OverviewTab "1" --> "*" Transaction : displays
+
+%% Composition (strong) between DuesSection and Transaction (dues contain transactions)
+DuesSection "1" *-- "*" Transaction : contains
+
+%% Generalization: CategoryChart is a kind of Widget
+CategoryChart <|-- Widget
+
+%% Aggregation: Uploads stored via AwsS3 (S3 is an external resource aggregated)
+Upload "*" o-- "1" AwsS3 : stores
+
+%% Association: Upload depends on OCRService to process files
+Upload "1" --> "1" OCRService : uses
+
+%% Dependency: Dashboard depends on NotificationService (sends alerts)
+Dashboard ..> NotificationService : notifies
+
+%% Cache usage (dependency) — Dashboard/Overview use Cache for fast reads
+OverviewTab ..> Cache : caches
+Dashboard ..> Cache : caches
+
+%% Multiplicities and labels to clarify relationships
+Widget "0..*" -- "1" Dashboard : parent
+CategoryChart "1" -- "1" Widget : is-a
+
+%% End
+

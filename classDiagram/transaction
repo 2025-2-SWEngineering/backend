@@ -1,0 +1,88 @@
+classDiagram
+  %% --- Core infra ---
+  class Server {
+    +start()
+    +initDb()
+  }
+  class Database {
+    +connect()
+    +query(sql, params)
+  }
+
+  %% --- Controllers ---
+  class TransactionsController {
+    +create(req,res)
+    +list(req,res)
+    +stats(req,res)
+  }
+  class UploadsController {
+    +uploadReceipt(req,res)
+    +getSignedUrl(req,res)
+  }
+  class AuthController {
+    +login(req,res)
+  }
+
+  %% --- Services ---
+  class JwtService {
+    +signAccessToken()
+    +verifyAccessToken()
+  }
+  class NotificationService {
+    +sendTransactionNotifications(userIds,payload)
+  }
+
+  class PushService {
+    +sendWebPush(subscription,payload)
+  }
+  class FcmService {
+    +sendToTokens(tokens,payload)
+  }
+  class StorageService {
+    +getSignedUploadUrl(path)
+    +storeFile(path,stream)
+  }
+  class OcrService {
+    +extractReceiptMetadata(buffer)
+  }
+
+  %% --- Models ---
+  class TransactionModel {
+    +createTransaction(...)
+    +listTransactionsByGroup(...)
+  }
+  class UserModel
+  class GroupModel
+  class PushSubscriptionModel
+  class FcmTokenModel
+  class NotificationLogModel
+
+  %% --- Relationships ---
+  Database *-- TransactionModel
+  Server o-- TransactionsController
+  Server o-- UploadsController
+  TransactionsController --> TransactionModel : uses
+  TransactionsController --> GroupModel : checks permissions
+  TransactionsController --> NotificationService : triggers
+  UploadsController --> StorageService : uses
+  UploadsController --> OcrService : uses
+  NotificationService --> PushService : uses
+  NotificationService --> FcmService : uses
+  PushService --> PushSubscriptionModel : reads
+  FcmService --> FcmTokenModel : reads
+
+  %% --- Fixed dependencies (safe identifiers, no quotes/special chars) ---
+  TransactionsController ..> JwtService : depends-on (auth)
+  TransactionsController ..> FileUploadLib : depends-on (multipart handling)
+  UploadsController ..> AwsS3 : depends-on (signed-url / S3)
+  PushService ..> WebPushLib : depends-on (web-push)
+  FcmService ..> FirebaseAdmin : depends-on (firebase-admin)
+
+  %% External lib placeholders:
+  class FileUploadLib
+  class AwsS3
+  class WebPushLib
+  class FirebaseAdmin
+
+  %% Legend
+  %% ..> Dependency (runtime / external)
