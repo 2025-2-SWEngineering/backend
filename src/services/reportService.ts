@@ -23,6 +23,10 @@ async function fetchReportData(groupId: number, from: string, to: string) {
      ORDER BY date ASC, id ASC`,
     [groupId, from, to]
   );
+  if (!tx || tx.length === 0) {
+    throw new Error("NO_DATA_FOUND");
+  }
+
   let totalIncome = 0;
   let totalExpense = 0;
   for (const t of tx as ReportRow[]) {
@@ -64,7 +68,8 @@ export async function buildReportPDF({ groupId, from, to }: { groupId: number; f
   const { transactions, totalIncome, totalExpense, currentBalance } = await fetchReportData(groupId, from, to);
   const doc = new PDFDocument({ size: "A4", margin: 50 });
   const chunks: Buffer[] = [];
-  // 폰트 로딩: 한글 표시를 위해 TTF/OTF 폰트를 등록 (예: NanumGothic, NotoSansKR 등)
+  
+  // Font Loading
   try {
     const envFont = process.env.PDF_FONT_PATH;
     const defaultCandidate = path.resolve(process.cwd(), "assets", "fonts", "NanumGothic.ttf");
@@ -73,46 +78,136 @@ export async function buildReportPDF({ groupId, from, to }: { groupId: number; f
       doc.registerFont("body", fontPath);
       doc.font("body");
     } else {
-      // S3에서 폰트 로드 시도
       const s3Font = await loadFontFromS3IfConfigured();
       if (s3Font) {
         doc.registerFont("body", s3Font);
         doc.font("body");
       } else {
-        // eslint-disable-next-line no-console
-        console.warn("[report] PDF font not found (local/S3). Korean glyphs may not render.");
+        console.warn("[report] PDF font not found. Korean glyphs may not render.");
       }
     }
   } catch {
-    // ignore font errors - PDFKit 기본 폰트로 진행(한글은 깨질 수 있음)
+    // ignore
   }
 
   const fmtCurrency = (n: number) => `${Number(n).toLocaleString("ko-KR")}원`;
   const fmtDate = (d: string) => (d && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d : new Date(d).toISOString().slice(0, 10));
+
   return await new Promise<Buffer>((resolve, reject) => {
     doc.on("data", (d: Buffer) => chunks.push(d));
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    doc.fontSize(18).text("우리회계 - 기간 보고서", { align: "left" });
-    doc.moveDown(0.5);
-    doc.fontSize(12).text(`기간: ${from} ~ ${to}`);
-    doc.moveDown(0.5);
-    doc.text(`총 수입: ${fmtCurrency(totalIncome)}`);
-    doc.text(`총 지출: ${fmtCurrency(totalExpense)}`);
-    doc.text(`현재 잔액: ${fmtCurrency(currentBalance)}`);
-    doc.moveDown();
-    doc.fontSize(14).text("거래 내역", { underline: true });
-    doc.moveDown(0.5);
+    // --- 1. Header Section ---
+    // Blue background header
+    doc.rect(0, 0, 595.28, 120).fill("#1a73e8"); // Google Blue style
+    
+    // Title
+    doc.fillColor("white");
+    doc.fontSize(26).text("재정 보고서", 0, 40, { align: "center" });
+    doc.fontSize(12).text(`기간: ${from} ~ ${to}`, 0, 80, { align: "center" });
+    
+    doc.fillColor("black"); // Reset text color
 
-    doc.fontSize(10);
-    transactions.forEach((t) => {
+    // --- 2. Summary Section ---
+    const summaryY = 150;
+    const cardWidth = 150;
+    const cardHeight = 80;
+    const gap = 20;
+    const startX = (595.28 - (cardWidth * 3 + gap * 2)) / 2; // Center alignment
+
+    const drawSummaryCard = (x: number, title: string, amount: string, color: string) => {
+      // Card Shadow (simple gray rect offset)
+      doc.roundedRect(x + 2, summaryY + 2, cardWidth, cardHeight, 5).fill("#e0e0e0");
+      // Card Background
+      doc.roundedRect(x, summaryY, cardWidth, cardHeight, 5).fill("white");
+      doc.roundedRect(x, summaryY, cardWidth, cardHeight, 5).stroke("#cccccc");
+      
+      // Content
+      doc.fillColor("#666666").fontSize(10).text(title, x, summaryY + 15, { width: cardWidth, align: "center" });
+      doc.fillColor(color).fontSize(16).text(amount, x, summaryY + 40, { width: cardWidth, align: "center" });
+    };
+
+    drawSummaryCard(startX, "총 수입", fmtCurrency(totalIncome), "#28a745"); // Green
+    drawSummaryCard(startX + cardWidth + gap, "총 지출", fmtCurrency(totalExpense), "#dc3545"); // Red
+    drawSummaryCard(startX + (cardWidth + gap) * 2, "현재 잔액", fmtCurrency(currentBalance), "#1a73e8"); // Blue
+
+    // --- 3. Transactions Table ---
+    let y = 260; // Start below summary
+    const tableTop = 260;
+    const colX = { date: 50, type: 130, desc: 190, amount: 450 };
+    const colWidth = { date: 80, type: 60, desc: 250, amount: 100 };
+    
+    // Table Title
+    doc.fillColor("#333").fontSize(14).text("상세 거래 내역", 50, y - 30);
+
+    const drawTableHeader = (currentY: number) => {
+      doc.rect(40, currentY, 515, 25).fill("#f8f9fa"); // Header bg
+      doc.fillColor("#495057").fontSize(10).font("Helvetica-Bold"); // Use bold if available, or fall back
+      try { doc.font("body"); } catch {} // Restore korean font if needed, but headers are simple
+      
+      // We need bold font for headers, but let's stick to "body" to ensure Korean works if we change headers to Korean
+      doc.font("body"); 
+      
+      doc.text("날짜", colX.date, currentY + 7);
+      doc.text("구분", colX.type, currentY + 7);
+      doc.text("내역", colX.desc, currentY + 7);
+      doc.text("금액", colX.amount, currentY + 7, { width: colWidth.amount, align: "right" });
+      
+      // Divider line
+      doc.moveTo(40, currentY + 25).lineTo(555, currentY + 25).strokeColor("#dee2e6").stroke();
+      return currentY + 30;
+    };
+
+    y = drawTableHeader(y);
+
+    doc.font("body").fontSize(10);
+    
+    transactions.forEach((t, i) => {
+      // Pagination Check
+      if (y > 750) {
+        doc.addPage();
+        y = 50; // Reset Y
+        y = drawTableHeader(y); // Draw header again
+      }
+
+      // Zebra Striping
+      if (i % 2 === 0) {
+        doc.rect(40, y - 5, 515, 25).fill("#fcfcfc");
+      }
+
+      // Content
+      doc.fillColor("#333");
+      doc.text(fmtDate(t.date), colX.date, y);
+      
+      const typeText = t.type === "income" ? "수입" : "지출";
+      const typeColor = t.type === "income" ? "#28a745" : "#dc3545";
+      
+      doc.fillColor(typeColor).text(typeText, colX.type, y);
+      
+      doc.fillColor("#333").text(t.description || "-", colX.desc, y, { width: colWidth.desc, lineBreak: false, ellipsis: true });
+      
       const sign = t.type === "income" ? "+" : "-";
-      const dateText = fmtDate(t.date);
-      const amountText = `${sign}${fmtCurrency(Number(t.amount))}`;
-      const desc = t.description || "-";
-      doc.text(`${dateText}  ${amountText}  ${desc}`);
+      const amountStr = `${sign} ${Number(t.amount).toLocaleString("ko-KR")}`;
+      doc.fillColor(typeColor).text(amountStr, colX.amount, y, { width: colWidth.amount, align: "right" });
+
+      // Bottom line for row
+      doc.moveTo(40, y + 20).lineTo(555, y + 20).strokeColor("#f1f3f5").lineWidth(0.5).stroke();
+      
+      y += 25; // Row height
     });
+
+    // --- 4. Footer ---
+    const pageCount = doc.bufferedPageRange().count;
+    for (let i = 0; i < pageCount; i++) {
+      doc.switchToPage(i);
+      doc.fillColor("#999").fontSize(9).text(
+        `${i + 1} / ${pageCount}`,
+        0,
+        doc.page.height - 30,
+        { align: "center" }
+      );
+    }
 
     doc.end();
   });

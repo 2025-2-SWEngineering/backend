@@ -13,4 +13,7 @@ router.get("/", validate(schemas.dues.list), dues.list);
 // 회비 납부 상태 업데이트 (관리자 전용)
 router.put("/", validate(schemas.dues.update), dues.update);
 
+// 회비 납부 초기화 (관리자 전용)
+router.post("/reset", dues.reset);
+
 export default router;

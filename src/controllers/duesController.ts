@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { getUserGroupRole } from "../models/groupModel.js";
-import { listDuesByGroup, setDuesStatus } from "../models/duesModel.js";
+import { listDuesByGroup, setDuesStatus, resetAllDues } from "../models/duesModel.js";
 
 export async function list(req: Request, res: Response, next: NextFunction) {
   try {
@@ -32,3 +32,18 @@ export async function update(req: Request, res: Response, next: NextFunction) {
 }
 
 
+export async function reset(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { groupId } = req.body as { groupId?: number };
+    if (!groupId) {
+      return res.status(400).json({ message: "groupId가 필요합니다." });
+    }
+    const role = await getUserGroupRole(req.user!.id, Number(groupId));
+    if (role !== "admin") return res.status(403).json({ message: "관리자 권한이 필요합니다." });
+
+    await resetAllDues(Number(groupId));
+    res.status(204).send();
+  } catch (err) {
+    next(err);
+  }
+}
